@@ -37,7 +37,7 @@ func (s *Semaphore) TryAcquire() bool {
 			return false
 		}
 
-		success := atomic.CompareAndSwapUint32(&s.permits, permis, permis - 1)
+		success := atomic.CompareAndSwapUint32(&s.permits, permis, permis-1)
 
 		if success {
 			return true

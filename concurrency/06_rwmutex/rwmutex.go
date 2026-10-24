@@ -8,7 +8,7 @@ import (
 const writer = 1 << 31
 
 type RWMutex struct {
-	state 		   uint32
+	state          uint32
 	waitingWriters uint32
 }
 
@@ -23,16 +23,16 @@ func (rw *RWMutex) RLock() {
 
 		state := atomic.LoadUint32(&rw.state)
 
-		if state & writer != 0 {
+		if state&writer != 0 {
 			futex.Wait(&rw.state, state)
 			continue
 		}
 
-		if state == writer - 1 {
+		if state == writer-1 {
 			panic("rwmutex: too many readers")
 		}
 
-		if atomic.CompareAndSwapUint32(&rw.state, state, state + 1) {
+		if atomic.CompareAndSwapUint32(&rw.state, state, state+1) {
 			return
 		}
 	}
@@ -42,11 +42,11 @@ func (rw *RWMutex) RUnlock() {
 	for {
 		state := atomic.LoadUint32(&rw.state)
 
-		if state == 0 || state & writer != 0 {
+		if state == 0 || state&writer != 0 {
 			panic("runlock of unlocked rwmutex")
 		}
 
-		if atomic.CompareAndSwapUint32(&rw.state, state, state - 1) {
+		if atomic.CompareAndSwapUint32(&rw.state, state, state-1) {
 			if state == 1 {
 				futex.WakeAll(&rw.state)
 			}
