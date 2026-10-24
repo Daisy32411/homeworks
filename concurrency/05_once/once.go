@@ -11,14 +11,14 @@ type Once struct {
 
 func (o *Once) Do(f func()) {
 	value := atomic.CompareAndSwapUint32(&o.state, 0, 1)
-	if value == false {
+	if !value {
 		for {
     		if o.Done() {
         		return
     		}
 
-    	futex.Wait(&o.state, 1)
-	}
+    		futex.Wait(&o.state, 1)
+		}
 	}
 
 	defer func() { 
