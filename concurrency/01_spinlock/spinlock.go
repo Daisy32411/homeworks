@@ -7,8 +7,7 @@ type Spinlock struct {
 }
 
 func (s *Spinlock) Lock() {
-	for (!s.locked.CompareAndSwap(false, true)) {
-
+	for !s.locked.CompareAndSwap(false, true) {
 	}
 }
 
@@ -17,8 +16,9 @@ func (s *Spinlock) TryLock() bool {
 }
 
 func (s *Spinlock) Unlock() {
-	old := s.locked.Swap(false);
-	if (!old) {
+	old := s.locked.Swap(false)
+
+	if !old {
 		panic("Unlock of unlocked spinlock")
 	}
 }
@@ -44,8 +44,9 @@ func (s *TTAS) TryLock() bool {
 }
 
 func (s *TTAS) Unlock() {
-	old := s.locked.Swap(false);
-	if (!old) {
+	old := s.locked.Swap(false)
+
+	if !old {
 		panic("Unlock of unlocked spinlock")
 	}
 }
