@@ -12,8 +12,8 @@ type Barrier struct {
 }
 
 func New(n int) *Barrier {
-	if n <= 0 {
-		panic("barrier: number of participants must be positive")
+	if n <= 0 || uint64(n) > uint64(^uint32(0)) {
+		panic("barrier: invalid number of participants")
 	}
 
 	return &Barrier{

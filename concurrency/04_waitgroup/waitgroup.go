@@ -10,14 +10,25 @@ type WaitGroup struct {
 }
 
 func (wg *WaitGroup) Add(delta int) {
-	value := atomic.AddUint32(&wg.count, uint32(delta))
-	
-	if int32(value) < 0 {
-		panic("negative WaitGroup counter")
-	}
+	change := int64(delta)
+	max := int64(^uint32(0))
 
-	if value == 0 && delta < 0 {
-		futex.WakeAll(&wg.count)
+	for {
+		old := atomic.LoadUint32(&wg.count)
+
+		if change < -int64(old) || change > max-int64(old) {
+			panic("waitgroup: counter out of range")
+		}
+
+		next := uint32(int64(old) + change)
+
+		if atomic.CompareAndSwapUint32(&wg.count, old, next) {
+			if old != 0 && next == 0 {
+				futex.WakeAll(&wg.count)
+			}
+
+			return
+		}
 	}
 }
 

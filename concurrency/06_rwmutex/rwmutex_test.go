@@ -1,6 +1,7 @@
 package rwmutex
 
 import (
+	"runtime"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -200,4 +201,83 @@ func BenchmarkReadHeavy(b *testing.B) {
 			rw.RUnlock()
 		}
 	})
+}
+
+func TestWriterDoesNotStarve(t *testing.T) {
+	var rw RWMutex
+
+	rw.RLock()
+
+	var writerEntered atomic.Bool
+	writerDone := make(chan struct{})
+
+	go func() {
+		rw.Lock()
+		writerEntered.Store(true)
+		rw.Unlock()
+		close(writerDone)
+	}()
+
+	deadline := time.Now().Add(2 * time.Second)
+
+	for atomic.LoadUint32(&rw.waitingWriters) == 0 {
+		if time.Now().After(deadline) {
+			rw.RUnlock()
+			t.Fatal("writer did not start waiting")
+		}
+		runtime.Gosched()
+	}
+
+	const readers = 8
+
+	stop := make(chan struct{})
+	var wg sync.WaitGroup
+	var earlyReader atomic.Bool
+
+	for i := 0; i < readers; i++ {
+		wg.Add(1)
+
+		go func() {
+			defer wg.Done()
+
+			for {
+				select {
+				case <-stop:
+					return
+				default:
+				}
+
+				rw.RLock()
+
+				if !writerEntered.Load() {
+					earlyReader.Store(true)
+				}
+
+				rw.RUnlock()
+			}
+		}()
+	}
+
+	time.Sleep(20 * time.Millisecond)
+
+	rw.RUnlock()
+
+	var timedOut bool
+
+	select {
+	case <-writerDone:
+	case <-time.After(2 * time.Second):
+		timedOut = true
+	}
+
+	close(stop)
+	wg.Wait()
+
+	if timedOut {
+		t.Fatal("writer starved under continuous readers")
+	}
+
+	if earlyReader.Load() {
+		t.Fatal("new reader acquired lock before waiting writer")
+	}
 }

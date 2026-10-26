@@ -33,7 +33,7 @@ func (m *Mutex) Lock() {
 }
 
 func (m *Mutex) TryLock() bool {
-	return atomic.CompareAndSwapUint32(&m.state, free, held);
+	return atomic.CompareAndSwapUint32(&m.state, free, held)
 }
 
 func (m *Mutex) Unlock() {
