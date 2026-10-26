@@ -46,8 +46,18 @@ func (s *Semaphore) TryAcquire() bool {
 }
 
 func (s *Semaphore) Release() {
-	atomic.AddUint32(&s.permits, 1)
-	futex.Wake(&s.permits)
+	for {
+		old := atomic.LoadUint32(&s.permits)
+
+		if old == ^uint32(0) {
+			panic("semaphore: permits overflow")
+		}
+
+		if atomic.CompareAndSwapUint32(&s.permits, old, old+1) {
+			futex.Wake(&s.permits)
+			return
+		}
+	}
 }
 
 func (s *Semaphore) Available() int {
