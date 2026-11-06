@@ -176,16 +176,6 @@ func fetch(
 		return
 	}
 
-	if resp.StatusCode >= 400 {
-		resp.Body.Close()
-
-		send(Result{
-			ID:  id,
-			Err: fmt.Errorf("HTTP error: %s", resp.Status),
-		})
-		return
-	}
-
 	send(Result{
 		ID:      id,
 		Status:  resp.Proto + " " + resp.Status,
