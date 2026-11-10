@@ -66,13 +66,26 @@ func parseStartLine(line string) (HTTPMessage, error) {
 			msg.Reason = parts[2]
 		}
 	} else {
-		parts := strings.Fields(line)
+		parts := strings.Split(line, " ")
 
-		if len(parts) != 3 {
+		if len(parts) != 3 || parts[0] == "" || parts[1] == "" {
 			return msg, fmt.Errorf("bad_start_line")
 		}
+
 		if parts[2] != "HTTP/1.1" {
 			return msg, fmt.Errorf("bad_start_line")
+		}
+
+		for i := 0; i < len(parts[0]); i++ {
+			if !validCh(parts[0][i]) {
+				return msg, fmt.Errorf("bad_start_line")
+			}
+		}
+
+		for i := 0; i < len(parts[1]); i++ {
+			if parts[1][i] < 0x21 || parts[1][i] > 0x7E {
+				return msg, fmt.Errorf("bad_start_line")
+			}
 		}
 
 		msg.Type = "request"
@@ -123,6 +136,14 @@ func parseHeaders(data []byte) ([]HTTPHeader, int, error) {
 		}
 
 		value = strings.Trim(value, " \t")
+
+		for i := 0; i < len(value); i++ {
+			ch := value[i]
+
+			if (ch < 0x20 && ch != '\t') || ch == 0x7F {
+				return nil, 0, fmt.Errorf("bad_header")
+			}
+		}
 
 		if name == "content-length" {
 			for i := 0; i < len(value); i++ {
@@ -287,12 +308,8 @@ func decodeChunked(data []byte) ([]byte, error) {
 }
 
 func validCh(ch byte) bool {
-	if (ch >= 'a' && ch <= 'z') ||
+	return (ch >= 'a' && ch <= 'z') ||
+		(ch >= 'A' && ch <= 'Z') ||
 		(ch >= '0' && ch <= '9') ||
-		strings.ContainsAny(string(ch), "!#$%&'*+-.^_`|~") {
-
-		return true
-	}
-
-	return false
+		strings.ContainsAny(string(ch), "!#$%&'*+-.^_`|~")
 }

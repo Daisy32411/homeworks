@@ -94,10 +94,23 @@ func parseIPv4Uint(ip string) (uint32, error) {
 	var ipUint uint32
 
 	for i := 0; i < 4; i++ {
-		num, err := strconv.Atoi(ipParts[i])
+		part := ipParts[i]
+
+		if len(part) == 0 {
+			return 0, fmt.Errorf("invalid IPv4 octet: %q", part)
+		}
+
+		for j := 0; j < len(part); j++ {
+			if part[j] < '0' || part[j] > '9' {
+				return 0, fmt.Errorf("invalid IPv4 octet: %q", part)
+			}
+		}
+
+		num, err := strconv.Atoi(part)
 		if err != nil {
 			return 0, err
 		}
+
 		if num < 0 || num > 255 {
 			return 0, fmt.Errorf("IPv4 octet out of range: %d", num)
 		}

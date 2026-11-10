@@ -44,6 +44,12 @@ func parseServerArgs(args []string) (string, int, error) {
 	}
 
 	server := args[1]
+	ip, err := netip.ParseAddr(server)
+	if err != nil {
+		return "", 0, fmt.Errorf("invalid DNS server IP: %q", server)
+	}
+
+	server = ip.String()
 
 	port, err := strconv.Atoi(args[2])
 	if err != nil {
@@ -187,6 +193,11 @@ func sendDNSQuery(server string, port int, packet []byte, id uint16) ([]byte, er
 			continue
 		}
 
+		flags := binary.BigEndian.Uint16(response[2:4])
+		if flags&0x8000 == 0 {
+			continue
+		}
+
 		return response[:n], nil
 	}
 }
@@ -211,6 +222,10 @@ func dnsTypeCode(recordType string) (uint16, error) {
 }
 
 func encodeDomain(name string) ([]byte, error) {
+	if name == "." {
+		return []byte{0}, nil
+	}
+
 	name = strings.TrimSuffix(name, ".")
 
 	parts := strings.Split(name, ".")

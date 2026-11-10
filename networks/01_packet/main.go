@@ -32,7 +32,7 @@ func main() {
 		err = parseIPv4(decodedData[14:])
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
-            os.Exit(1)
+			os.Exit(1)
 		}
 	}
 }
@@ -42,7 +42,7 @@ func printMac(frame []byte, dir string, l, r int) {
 
 	for i := l; i <= r; i++ {
 		fmt.Printf("%02x", frame[i])
-		
+
 		if i != r {
 			fmt.Printf(":")
 		}
@@ -83,14 +83,13 @@ func parseIPv4(packet []byte) error {
 	identification := binary.BigEndian.Uint16(packet[4:6])
 	flagsAndOffset := binary.BigEndian.Uint16(packet[6:8])
 
-	df := flagsAndOffset & 0x4000 != 0
-	mf := flagsAndOffset & 0x2000 != 0
+	df := flagsAndOffset&0x4000 != 0
+	mf := flagsAndOffset&0x2000 != 0
 
 	fragmentOffset := (flagsAndOffset & 0x1FFF) * 8
-	
 
 	flagsText := ""
-	
+
 	if !df && !mf {
 		flagsText = "none"
 	} else if df && !mf {
@@ -118,15 +117,15 @@ func parseIPv4(packet []byte) error {
 	fmt.Printf("ip.ttl %d\n", ttl)
 	fmt.Printf("ip.protocol %d\n", protocol)
 	fmt.Printf("ip.checksum_valid %t\n", checkSumValid)
-	fmt.Printf("ip.src %d.%d.%d.%d\n", (sourceIp >> 24) & 0xFF, 
-									 (sourceIp >> 16) & 0xFF, 
-									 (sourceIp >> 8) & 0xFF, 
-									 (sourceIp & 0xFF))
-	fmt.Printf("ip.dst %d.%d.%d.%d\n", (destinationIp >> 24) & 0xFF, 
-									 (destinationIp >> 16) & 0xFF, 
-									 (destinationIp >> 8) & 0xFF, 
-									 (destinationIp & 0xFF))
-	
+	fmt.Printf("ip.src %d.%d.%d.%d\n", (sourceIp>>24)&0xFF,
+		(sourceIp>>16)&0xFF,
+		(sourceIp>>8)&0xFF,
+		(sourceIp & 0xFF))
+	fmt.Printf("ip.dst %d.%d.%d.%d\n", (destinationIp>>24)&0xFF,
+		(destinationIp>>16)&0xFF,
+		(destinationIp>>8)&0xFF,
+		(destinationIp & 0xFF))
+
 	if int(totalLength) < byteIHL || int(totalLength) > len(packet) {
 		return fmt.Errorf("invalid IPv4 total length: %d", totalLength)
 	}
@@ -139,22 +138,22 @@ func parseIPv4(packet []byte) error {
 	}
 
 	if protocol == 17 && fragmentOffset == 0 {
-		err := parseUDP(packet[byteIHL:int(totalLength)])
+		err := parseUDP(packet[byteIHL:int(totalLength)], mf)
 		if err != nil {
 			return err
 		}
 	}
 
 	if (protocol != 6 && protocol != 17) || fragmentOffset != 0 {
-    	payloadLength := int(totalLength) - byteIHL
+		payloadLength := int(totalLength) - byteIHL
 
-    	fmt.Printf("payload.length %d\n", payloadLength)
+		fmt.Printf("payload.length %d\n", payloadLength)
 	}
 
 	return nil
 }
 
-func parseUDP(segment []byte) error {
+func parseUDP(segment []byte, mf bool) error {
 	if len(segment) < 8 {
 		return fmt.Errorf("UDP segment too short: %d bytes", len(segment))
 	}
@@ -163,11 +162,19 @@ func parseUDP(segment []byte) error {
 	dstPort := binary.BigEndian.Uint16(segment[2:4])
 	udpLength := int(binary.BigEndian.Uint16(segment[4:6]))
 
-	if udpLength < 8 || udpLength > len(segment) {
+	if udpLength < 8 {
+		return fmt.Errorf("invalid UDP length: %d", udpLength)
+	}
+
+	if !mf && udpLength > len(segment) {
 		return fmt.Errorf("invalid UDP length: %d", udpLength)
 	}
 
 	payloadLength := udpLength - 8
+
+	if mf {
+		payloadLength = len(segment) - 8
+	}
 
 	fmt.Printf("udp.src_port %d\n", srcPort)
 	fmt.Printf("udp.dst_port %d\n", dstPort)
@@ -198,22 +205,22 @@ func parseTCP(segment []byte) error {
 	flags := segment[13]
 
 	var flagsList []string
-	if flags & 0x01 != 0 {
+	if flags&0x01 != 0 {
 		flagsList = append(flagsList, "FIN")
 	}
-	if flags & 0x02 != 0 {
+	if flags&0x02 != 0 {
 		flagsList = append(flagsList, "SYN")
 	}
-	if flags & 0x04 != 0 {
+	if flags&0x04 != 0 {
 		flagsList = append(flagsList, "RST")
 	}
-	if flags & 0x08 != 0 {
+	if flags&0x08 != 0 {
 		flagsList = append(flagsList, "PSH")
 	}
-	if flags & 0x10 != 0 {
+	if flags&0x10 != 0 {
 		flagsList = append(flagsList, "ACK")
 	}
-	if flags & 0x20 != 0 {
+	if flags&0x20 != 0 {
 		flagsList = append(flagsList, "URG")
 	}
 	if len(flagsList) == 0 {
@@ -241,10 +248,10 @@ func validIPv4Checksum(header []byte) bool {
 	var sum uint32
 
 	for i := 0; i < len(header); i += 2 {
-		sum += uint32(binary.BigEndian.Uint16(header[i:i + 2]))
+		sum += uint32(binary.BigEndian.Uint16(header[i : i+2]))
 	}
 
-	for (sum > 0xFFFF) {
+	for sum > 0xFFFF {
 		sum = (sum & 0xFFFF) + (sum >> 16)
 	}
 
